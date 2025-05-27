@@ -1,0 +1,40 @@
+name: Check Daily Commits
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  
+  workflow_dispatch:  
+
+jobs:
+  check_commits:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for today's commits
+        id: check_commits
+        run: |
+          response=$(curl -s -H "Authorization: token ${{ secrets.PAT }}" \
+            "https://api.github.com/users/${{ github.actor }}/events")
+          
+          # Check if any PushEvent happened today
+          today=$(date -u +"%Y-%m-%d")
+          has_commits=$(echo "$response" | jq -r --arg today "$today" \
+            '[.[] | select(.type == "PushEvent") | .created_at | startswith($today)] | any')
+
+          if [[ "$has_commits" == "true" ]]; then
+            echo "Commits found today!"
+          else
+            echo "No commits today!"
+            echo "::set-output name=no_commits::true"
+            exit 1
+          fi
+
+      - name: Send email if no commits
+        if: steps.check_commits.outputs.no_commits == 'true'
+        run: |
+          # Send email via curl to SMTP (Gmail example)
+          curl --url "smtps://smtp.gmail.com:465" \
+            --ssl-reqd \
+            --mail-from "${{ secrets.EMAIL_FROM }}" \
+            --mail-rcpt "${{ secrets.EMAIL_TO }}" \
+            --user "${{ secrets.EMAIL_FROM }}:${{ secrets.EMAIL_PASSWORD }}" \
+            --upload-file <(echo -e "From: ${{ secrets.EMAIL_FROM }}\nTo: ${{ secrets.EMAIL_TO }}\nSubject: GitHub Daily Commit Check\n\nYou did not commit to GitHub today! 🚨")
