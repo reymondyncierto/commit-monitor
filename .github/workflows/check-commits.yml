@@ -24,17 +24,26 @@ jobs:
             echo "Commits found today!"
           else
             echo "No commits today!"
-            echo "::set-output name=no_commits::true"
+            echo echo "{name}={value}" >> $GITHUB_OUTPUT
             exit 1
           fi
 
       - name: Send email if no commits
         if: steps.check_commits.outputs.no_commits == 'true'
         run: |
+          # Determine email subject and body based on commit status
+          if [[ "${{ steps.check_commits.outputs.commit_status }}" == "has_commits" ]]; then
+            subject="GitHub Commit Status: Success!"
+            body="Great job! You've committed to GitHub today. 🎉"
+          else
+            subject="GitHub Commit Status: Reminder"
+            body="You haven't committed to GitHub yet today. 🚨"
+          fi
+
           # Send email via curl to SMTP (Gmail example)
           curl --url "smtps://smtp.gmail.com:465" \
             --ssl-reqd \
             --mail-from "${{ secrets.EMAIL_FROM }}" \
             --mail-rcpt "${{ secrets.EMAIL_TO }}" \
             --user "${{ secrets.EMAIL_FROM }}:${{ secrets.EMAIL_PASSWORD }}" \
-            --upload-file <(echo -e "From: ${{ secrets.EMAIL_FROM }}\nTo: ${{ secrets.EMAIL_TO }}\nSubject: GitHub Daily Commit Check\n\nYou did not commit to GitHub today! 🚨")
+            --upload-file <(echo -e "From: ${{ secrets.EMAIL_FROM }}\nTo: ${{ secrets.EMAIL_TO }}\nSubject: $subject\n\n$body")
