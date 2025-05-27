@@ -25,7 +25,6 @@ jobs:
           else
             echo "No commits today!"
             echo "{name}={value}" >> $GITHUB_OUTPUT
-            exit 1
           fi
 
       - name: Send email if no commits
