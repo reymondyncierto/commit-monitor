@@ -2,8 +2,8 @@ name: Check Daily Commits
 
 on:
   schedule:
-    - cron: '*/5 * * * *'  
-  workflow_dispatch:  
+    - cron: '0 12 * * *'
+  workflow_dispatch:
 
 jobs:
   check_commits:
@@ -11,35 +11,30 @@ jobs:
     steps:
       - name: Check for today's commits
         id: check_commits
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
         run: |
-          response=$(curl -s -H "Authorization: token ${{ secrets.PAT }}" \
+          response=$(curl -s -H "Authorization: token $GH_TOKEN" \
             "https://api.github.com/users/${{ github.actor }}/events")
-          
-          # Check if any PushEvent happened today
+
           today=$(date -u +"%Y-%m-%d")
           has_commits=$(echo "$response" | jq -r --arg today "$today" \
             '[.[] | select(.type == "PushEvent") | .created_at | startswith($today)] | any')
 
           if [[ "$has_commits" == "true" ]]; then
-            echo "Commits found today!"
+            echo "no_commits=false" >> $GITHUB_OUTPUT
+            echo "commit_status=has_commits" >> $GITHUB_OUTPUT
           else
-            echo "No commits today!"
-            echo "{name}={value}" >> $GITHUB_OUTPUT
+            echo "no_commits=true" >> $GITHUB_OUTPUT
+            echo "commit_status=no_commits" >> $GITHUB_OUTPUT
           fi
 
       - name: Send email if no commits
         if: steps.check_commits.outputs.no_commits == 'true'
         run: |
-          # Determine email subject and body based on commit status
-          if [[ "${{ steps.check_commits.outputs.commit_status }}" == "has_commits" ]]; then
-            subject="GitHub Commit Status: Success!"
-            body="Great job! You've committed to GitHub today. 🎉"
-          else
-            subject="GitHub Commit Status: Reminder"
-            body="You haven't committed to GitHub yet today. 🚨"
-          fi
+          subject="GitHub Commit Status: Reminder"
+          body="You haven't committed to GitHub yet today. 🚨"
 
-          # Send email via curl to SMTP (Gmail example)
           curl --url "smtps://smtp.gmail.com:465" \
             --ssl-reqd \
             --mail-from "${{ secrets.EMAIL_FROM }}" \
