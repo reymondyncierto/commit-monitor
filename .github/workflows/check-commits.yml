@@ -24,7 +24,7 @@ jobs:
             echo "Commits found today!"
           else
             echo "No commits today!"
-            echo echo "{name}={value}" >> $GITHUB_OUTPUT
+            echo "{name}={value}" >> $GITHUB_OUTPUT
             exit 1
           fi
 
